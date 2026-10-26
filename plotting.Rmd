@@ -37,11 +37,6 @@ generate_linegraphs_by_subset(sim_name, tests,grouping="limma")
 
 
 
-```{r,fig.width = 30, fig.height = 30}
-generate_heatmaps_by_test(sim_name, tests, subsets)
-
-```
-
 Zeevi Gut, edgeR
 
 ```{r,fig.width = 9, fig.height = 5}
@@ -69,10 +64,6 @@ generate_linegraphs_by_subset(sim_name, tests,grouping="limmaVedgeR")
 
 ```
 
-
-```{r,fig.width = 30, fig.height = 30}
-generate_heatmaps_by_test(sim_name, tests, subsets)
-```
 
 ```{r,fig.width = 9, fig.height = 5}
 source("plotting_functions.R")
@@ -131,9 +122,6 @@ generate_linegraphs_by_subset(sim_name, tests,grouping="limma")
 
 ```
 
-```{r,fig.width = 30, fig.height = 30}
-generate_heatmaps_by_test(sim_name, tests, subsets)
-```
 
 Brito Oral, edgeR
 
