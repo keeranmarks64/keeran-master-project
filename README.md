@@ -9,7 +9,7 @@ Command:
 
 simulationName is the name of the simulated dataset, which has a corresponding set of parameters contained with a file in the same directory named simulationName_params.R which is imported by the generate_simulations.R script. The script produces an h5 file containing the simulated data under the datasets folder called simulationName.h5.
 
-	The simulation parameters in the Wirbel study (Zeevi gut niche data) are
+The simulation parameters in the Wirbel study (Zeevi gut niche data) are
 -	Abundance scales (ab.scale) : 1, 1.25, 1.5, 2, 5, 10, 20
 -	Prevalence shift (prev.scale): 0,0.1,0.2, 0.3
 -	Repetitions of each effect combination (effect_comb_repeats): 20
