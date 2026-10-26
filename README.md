@@ -1,6 +1,6 @@
 # keeran-master-project
 
-Data Collection Workflow for Simulated Microbiome Differential Abundance benchmarking
+### Data Collection Workflow for Simulated Microbiome Differential Abundance benchmarking
 (Designed to be run from command line in a shell)
 1.	Generating Simulated Dataset
 Command: 
@@ -37,3 +37,12 @@ simulationName is the name of the simulated dataset that the edgeR versions will
 In the notebook plotting.Rmd you can run the functions plot_linegraphs_by_effect and generate_linegraphs_by_effect and generate_linegraphs_by_subset to reproduce the line graphs for plotting the accuracy metrics as a function of sample and effect size for a given simulated dataset and results. 
 
 
+### Data Collection Workflow for Simulated Microbiome Classification Benchmarking
+
+1. Generate Simulated Data as above: 
+
+2. Apply classifier to simulated data with given classifiers with the following command:
+
+  python3.13 classification_script.py simulationName classifier1 classifier2
+
+3. Plot generated results using the classification_plotting.ipynb notebook and run the successive cells, changing the simulation name and set of classifiers to plot the relevant simulation/classifier plots.
