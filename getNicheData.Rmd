@@ -1,0 +1,224 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(curatedMetagenomicData)
+library(dplyr)
+```
+
+
+```{r}
+studies = sampleMetadata |>
+    dplyr::rename(Study = study_name) |>
+    dplyr::rename(Curator = curator) |>
+    dplyr::rename(Disease = disease) |>
+    dplyr::rename(`Body Site` = body_site) |>
+    dplyr::rename(`Body Subsite` = body_subsite) |>
+    dplyr::select(Study, PMID, Curator, Disease, `Body Site`, `Body Subsite`) |>
+    dplyr::mutate(PMID = stringr::str_replace(PMID, "unpublished", NA_character_)) |>
+    dplyr::mutate(Curator = stringr::str_replace_all(Curator, ",", ";")) |>
+    dplyr::group_by(Study) |>
+    dplyr::summarize(
+        Study = stringr::str_c(base::unique(Study), collapse = ";"),
+        PMID = stringr::str_c(base::unique(PMID), collapse = ";"),
+        Curator = stringr::str_c(base::unique(Curator), collapse = ";"),
+        Disease = stringr::str_c(base::unique(Disease), collapse = ";"),
+        `Body Site` = stringr::str_c(base::unique(`Body Site`), collapse = ";"),
+        `Body Subsite` = stringr::str_c(base::unique(`Body Subsite`), collapse = ";"),
+        Samples = dplyr::n()
+    ) |>
+    dplyr::group_by(Study) |>
+    dplyr::mutate(
+        PMID = stringr::str_c(base::unique(stringr::str_sort(stringr::str_split(PMID, ";", simplify = TRUE))), collapse = ", "),
+        Curator = stringr::str_c(base::unique(stringr::str_split(Curator, ";", simplify = TRUE)), collapse = ", "),
+        Disease = stringr::str_c(base::unique(stringr::str_sort(stringr::str_split(Disease, ";", simplify = TRUE))), collapse = ", "),
+        `Body Site` = stringr::str_c(base::unique(stringr::str_sort(stringr::str_split(`Body Site`, ";", simplify = TRUE))), collapse = ", "),
+        `Body Subsite` = stringr::str_c(base::unique(stringr::str_sort(stringr::str_split(`Body Subsite`, ";", simplify = TRUE))), collapse = ", ")
+    ) |>
+    dplyr::mutate(Curator = stringr::str_replace_all(Curator, "_", " ")) |>
+    dplyr::mutate(Disease = stringr::str_replace_all(Disease, "_", " ")) |>
+    dplyr::mutate(`Body Site` = stringr::str_replace_all(`Body Site`, "cavity", "_cavity")) |>
+    dplyr::mutate(`Body Site` = stringr::str_replace_all(`Body Site`, "_", " ")) |>
+    dplyr::mutate(`Body Subsite` = stringr::str_replace_all(`Body Subsite`, ", l_", ", left_")) |>
+    dplyr::mutate(`Body Subsite` = stringr::str_replace_all(`Body Subsite`, ", r_", ", right_")) |>
+    dplyr::mutate(`Body Subsite` = stringr::str_replace_all(`Body Subsite`, "_", " ")) |> 
+    dplyr::ungroup() |>
+    dplyr::mutate(dplyr::across(.cols = -Samples, .fns = ~ tidyr::replace_na(.x, ""))) |>
+    DT::datatable(options = list(dom = "t", pageLength = 100), extensions = "Responsive")
+```
+
+```{r}
+data=studies$x$data$`Body Site`
+data
+```
+
+
+
+```{r}
+oral_studies = studies$x$data %>% 
+  filter(,grepl('vagina', `Body Site`)) %>% 
+  filter(,grepl('healthy', `Disease`)) %>% 
+  filter(Samples > 0) %>% 
+  select(Study,PMID, `Body Site`, Disease,Samples, `Body Subsite`)
+
+oral_studies
+```
+
+Studies to choose for oral data that used WGS
+
+Brito 2016 27409808 uses Whole Genome Metagenomic sequencing to extract the oral and gut microbiome content of 172 healthy agrarian fijian islanders. This should do nicely due to the large number of biological replicates and WGS sequencing. 
+
+
+```{r}
+skin_studies = studies$x$data %>% 
+  filter(,grepl('skin', `Body Site`)) %>%
+  filter(,grepl('healthy', `Disease`)) %>% 
+  filter(Samples > 0) %>% 
+  select(Study,PMID, `Body Site`, Disease,Samples, `Body Subsite`)
+
+skin_studies
+```
+Chng 2016 uses WGS on 39 asian subjects with clinically intact non-inflamed skin, 15 of which are healthy control subjects. 
+Ferretti took 25 Mother and Infant pairs, all mothers are healthy, while Oh took 15 individuals at 18 different sites. 
+HMP used 16S sequencing. 
+
+If the samples from Oh are shuffled, we can reduce the autocorrelation within groups and assume that the samples are independent, attaining 270 
+
+```{r}
+#extracting niche data from curatedMetagenomicData package
+library(dplyr)
+library(DT)
+library(curatedMetagenomicData)
+library(Rfast)
+
+```
+
+```{r}
+##Skin niche: FerrettiP_2018
+#Metadata
+metadata = sampleMetadata |> 
+  filter(study_name == "FerrettiP_2018") |> 
+  filter(body_site == 'skin')
+
+transformed_metadata = data.frame(Sample_ID=metadata$sample_id	,Individual_ID=metadata$subject_id,	Timepoint=rep(0,dim(metadata)[1]),BMI=metadata$BMI,	Age=metadata$age,	Gender=metadata$gender,	Library_Size=metadata$number_reads,	Group=rep("CTR",dim(metadata)[1]))
+
+write.table(transformed_metadata, file='raw_data/meta_Ferretti_2018.tsv', quote=FALSE, sep='\t',row.names=FALSE)
+
+#Count Matrix
+filtered_ids = metadata$sample_id 
+
+skin = curatedMetagenomicData("FerrettiP_2018",dryrun=FALSE,rownames="short",counts=TRUE)
+skin_abundance = skin$`2021-03-31.FerrettiP_2018.relative_abundance`
+count_matrix = skin_abundance@assays@data@listData[["relative_abundance"]][,filtered_ids]
+
+write.table(count_matrix, file='raw_data/motus_Ferretti_2018.tsv', quote=FALSE, sep='\t')
+
+```
+
+```{r}
+##Oral Niche: study BritoIL_2016
+#metadata
+oral_metadata = sampleMetadata |> 
+  filter(study_name == "BritoIL_2016") |> 
+  filter(body_site == 'oralcavity') |> 
+  filter(study_condition == 'control')
+
+transformed_oral_metadata = data.frame(Sample_ID=oral_metadata$sample_id	,Individual_ID=oral_metadata$subject_id,	Timepoint=rep(0,dim(oral_metadata)[1]),BMI=oral_metadata$BMI,	Age=oral_metadata$age,	Gender=oral_metadata$gender,	Library_Size=oral_metadata$number_reads,	Group=rep("CTR",dim(oral_metadata)[1]))
+
+write.table(transformed_oral_metadata, file='raw_data/meta_Brito_2016.tsv', quote=FALSE, sep='\t',row.names=FALSE)
+  
+#count matrix
+filtered_ids = oral_metadata$sample_id 
+
+oral = curatedMetagenomicData("BritoIL_2016",dryrun=FALSE,rownames="short",counts=TRUE)
+oral_abundance = oral$`2021-03-31.BritoIL_2016.relative_abundance`
+count_matrix = oral_abundance@assays@data@listData[["relative_abundance"]][,filtered_ids]
+
+write.table(count_matrix, file='raw_data/motus_Brito_2016.tsv', quote=FALSE, sep='\t')
+
+```
+
+```{r}
+##Skin niche: OhJ_2014
+#Metadata
+skin_metadata = sampleMetadata |> 
+  filter(study_name == "OhJ_2014") |>
+  filter(body_site == 'skin') |> 
+  filter(study_condition == 'control')
+
+#taking only certain subset to avoid corrupted samples (determined through trial and error)
+skin_metadata=skin_metadata[c(1:100,126:150,200:291),]
+
+#shuffling the samples
+skin_metadata=skin_metadata[sample(rownames(skin_metadata)),]
+
+#treating each sample as an individual hence inividual id is the same as sample ID
+transformed_skin_metadata = data.frame(Sample_ID=skin_metadata$sample_id, Individual_ID=skin_metadata$sample_id,	Timepoint=rep(0,dim(skin_metadata)[1]),BMI=skin_metadata$BMI,	Age=skin_metadata$age,	Gender=skin_metadata$gender,	Library_Size=skin_metadata$number_reads,	Group=rep("CTR",dim(skin_metadata)[1]))
+
+write.table(transformed_skin_metadata, file='raw_data/meta_OhJ_2014.tsv', quote=FALSE, sep='\t',row.names=FALSE)
+
+#Count Matrix
+skin = curatedMetagenomicData("OhJ_2014",dryrun=FALSE,rownames="short",counts=TRUE)
+skin_abundance = skin$`2021-10-14.OhJ_2014.relative_abundance`
+count_matrix = skin_abundance@assays@data@listData[["relative_abundance"]][,skin_metadata$sample_id]
+
+write.table(count_matrix, file='raw_data/motus_OhJ_2014.tsv', quote=FALSE, sep='\t')
+
+
+
+```
+
+```{r}
+##Skin niche: OhJ_2014 (experimenting with filtering to measure sparsity)
+#Metadata
+skin_metadata = sampleMetadata |> 
+  filter(study_name == "OhJ_2014") |>
+  filter(body_site == 'skin') |> 
+  filter(study_condition == 'control')
+
+#taking only certain subset to avoid corrupted samples (determined through trial and error)
+skin_metadata=skin_metadata[c(1:100,126:150,200:291),]
+
+#shuffling the samples
+skin_metadata=skin_metadata[sample(rownames(skin_metadata)),]
+
+#treating each sample as an individual hence inividual id is the same as sample ID
+transformed_skin_metadata = data.frame(Sample_ID=skin_metadata$sample_id, Individual_ID=skin_metadata$sample_id,	Timepoint=rep(0,dim(skin_metadata)[1]),BMI=skin_metadata$BMI,	Age=skin_metadata$age,	Gender=skin_metadata$gender,	Library_Size=skin_metadata$number_reads,	Group=rep("CTR",dim(skin_metadata)[1]))
+
+
+#Count Matrix
+skin = curatedMetagenomicData("OhJ_2014",dryrun=FALSE,rownames="short",counts=TRUE)
+skin_abundance = skin$`2021-10-14.OhJ_2014.relative_abundance`
+count_matrix = skin_abundance@assays@data@listData[["relative_abundance"]][,skin_metadata$sample_id]
+
+remove_sparse_columns <- function(mat, min_nonzero = 5) {
+  # Count non-zero entries in each column
+  nonzero_counts <- colSums(mat != 0)
+  
+  # Keep only columns with at least min_nonzero non-zero entries
+  keep_cols <- nonzero_counts >= min_nonzero
+  
+  # Subset the matrix, preserving matrix structure even if one column remains
+  result <- mat[, keep_cols, drop = FALSE]
+  
+  return(result)
+}
+
+count_matrix_filtered = remove_sparse_columns(count_matrix,15)
+transformed_skin_metadata_filtered = transformed_skin_metadata %>% filter(Sample_ID %in% colnames(count_matrix_filtered))
+
+
+write.table(transformed_skin_metadata_filtered, file='raw_data/meta_OhJ_2014_filtered.tsv', quote=FALSE, sep='\t',row.names=FALSE)
+write.table(count_matrix_filtered, file='raw_data/motus_OhJ_2014_filtered.tsv', quote=FALSE, sep='\t')
+```
+
+
+
+```{r}
+colnames(count_matrix_filtered)
+
+```
+
+

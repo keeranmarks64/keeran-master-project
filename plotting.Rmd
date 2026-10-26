@@ -1,0 +1,277 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Zeevi Gut, Limma 
+
+```{r,fig.width = 9, fig.height = 5}
+source("plotting_functions.R")
+
+#filenames for results data
+sim_name = "zeevi_gut_medium"
+
+tests = c(
+  "limma_original_TMM",
+  "limma_trend",
+  "limma_voom",
+  "limma_original_RLE",
+  "limma_trend_RLE",
+  "limma_voom_RLE",
+  "limma_original_TMMwsp",
+  "limma_trend_TMMwsp",
+  "limma_voom_TMMwsp"
+)
+
+# sim_metrics = get_sim_tests(sim_name,tests)
+
+subsets = c(12,24,50,100,200,400,800) #zeevi gut
+
+generate_linegraphs_by_effect(sim_name, tests, subsets,grouping="limma")
+
+```
+
+```{r,fig.width = 8, fig.height = 5}
+generate_linegraphs_by_subset(sim_name, tests,grouping="limma")
+```
+
+
+
+```{r,fig.width = 30, fig.height = 30}
+generate_heatmaps_by_test(sim_name, tests, subsets)
+
+```
+
+Zeevi Gut, edgeR
+
+```{r,fig.width = 9, fig.height = 5}
+source("plotting_functions.R")
+
+#filenames for results data
+sim_name = "zeevi_gut_medium"
+
+tests = c(
+  "limma_original_TMM",
+  "limma_trend",
+  "limma_voom",
+  "edgeR_v1",
+  "edgeR_v2",
+  "edgeR_ql"
+)
+
+# sim_metrics = get_sim_tests(sim_name,tests)
+
+subsets = c(12,24,50,100,200,400,800) #zeevi gut
+
+generate_linegraphs_by_effect(sim_name, tests, subsets,grouping="limmaVedgeR")
+generate_linegraphs_by_subset(sim_name, tests,grouping="limmaVedgeR")
+
+
+```
+
+
+```{r,fig.width = 30, fig.height = 30}
+generate_heatmaps_by_test(sim_name, tests, subsets)
+```
+
+```{r,fig.width = 9, fig.height = 5}
+source("plotting_functions.R")
+
+#filenames for results data
+sim_name = "zeevi_gut_medium"
+
+tests = c(
+  "edgeR_v1",
+  "edgeR_v2",
+  "edgeR_ql",
+  "edgeR_v1_RLE",
+  "edgeR_v2_RLE",
+  "edgeR_ql_RLE",
+  "edgeR_v1_TMMwsp",
+  "edgeR_v2_TMMwsp",
+  "edgeR_ql_TMMwsp"
+)
+
+# sim_metrics = get_sim_tests(sim_name,tests)
+
+subsets = c(12,24,50,100,200,400,800) #zeevi gut
+
+generate_linegraphs_by_effect(sim_name, tests, subsets,grouping="edgeR")
+generate_linegraphs_by_subset(sim_name, tests,grouping="edgeR")
+```
+
+
+
+
+Brito Oral: Limma
+
+```{r,fig.width = 9, fig.height = 5}
+source("plotting_functions.R")
+
+#filenames for results data
+sim_name = "brito_oral_medium"
+
+tests = c(
+  "limma_original_TMM",
+  "limma_trend",
+  "limma_voom",
+  "limma_original_RLE",
+  "limma_trend_RLE",
+  "limma_voom_RLE",
+  "limma_original_TMMwsp",
+  "limma_trend_TMMwsp",
+  "limma_voom_TMMwsp"
+)
+
+subsets = c(12,24,50,100,140) #Brito Oral
+
+generate_linegraphs_by_effect(sim_name, tests, subsets,grouping="limma")
+generate_linegraphs_by_subset(sim_name, tests,grouping="limma")
+
+
+```
+
+```{r,fig.width = 30, fig.height = 30}
+generate_heatmaps_by_test(sim_name, tests, subsets)
+```
+
+Brito Oral, edgeR
+
+```{r,fig.width = 9, fig.height = 5}
+#filenames for results data
+sim_name = "brito_oral_medium"
+
+tests = c(
+  "edgeR_v1",
+  "edgeR_v2",
+  "edgeR_ql",
+  "edgeR_v1_RLE",
+  "edgeR_v2_RLE",
+  "edgeR_ql_RLE",
+  "edgeR_v1_TMMwsp",
+  "edgeR_v2_TMMwsp",
+  "edgeR_ql_TMMwsp"
+)
+
+
+subsets = c(12,24,50,100,140) #Brito Oral
+
+generate_linegraphs_by_effect(sim_name, tests, subsets, grouping="edgeR")
+generate_linegraphs_by_subset(sim_name, tests,grouping = "edgeR")
+
+```
+```{r,fig.width = 30, fig.height = 30}
+generate_heatmaps_by_test(sim_name, tests, subsets)
+```
+
+```{r,fig.width = 9, fig.height = 5}
+source("plotting_functions.R")
+#filenames for results data
+sim_name = "brito_oral_medium"
+
+tests = c(
+  "edgeR_v1",
+  "edgeR_v2",
+  "edgeR_ql",
+  "edgeR_v1_TMMwsp",
+  "edgeR_v2_TMMwsp",
+  "edgeR_ql_TMMwsp",
+  "limma_original_TMM",
+  "limma_trend",
+  "limma_voom",
+  "limma_original_TMMwsp",
+  "limma_trend_TMMwsp",
+  "limma_voom_TMMwsp"
+)
+
+
+subsets = c(12,24,50,100,140) #Brito Oral
+
+generate_linegraphs_by_effect(sim_name, tests, subsets, grouping="edgeRvLimma")
+generate_linegraphs_by_subset(sim_name, tests,grouping = "edgeRvLimma")
+```
+
+
+OhJ Skin (Prefiltered): Limma
+
+```{r,fig.width = 9, fig.height = 5}
+source("plotting_functions.R")
+
+#filenames for results data
+sim_name = "ohj_skin_prefilt_medium"
+
+tests = c(
+  "limma_original_TMM",
+  "limma_trend",
+  "limma_voom",
+  "limma_original_RLE",
+  "limma_trend_RLE",
+  "limma_voom_RLE",
+  "limma_original_TMMwsp",
+  "limma_trend_TMMwsp",
+  "limma_voom_TMMwsp"
+)
+
+subsets = c(12,24,50,100,150)
+
+generate_linegraphs_by_effect(sim_name, tests, subsets,grouping="limma")
+generate_linegraphs_by_subset(sim_name, tests, grouping = "limma")
+```
+
+OhJ Skin (Prefiltered) : EdgeR
+
+```{r,fig.width = 9, fig.height = 5}
+source("plotting_functions.R")
+
+#filenames for results data
+sim_name = "ohj_skin_prefilt_medium"
+
+tests = c(
+  "edgeR_v1",
+  "edgeR_v2",
+  "edgeR_ql",
+  "edgeR_v1_RLE",
+  "edgeR_v2_RLE",
+  "edgeR_ql_RLE",
+  "edgeR_v1_TMMwsp",
+  "edgeR_v2_TMMwsp"
+  #"edgeR_ql_TMMwsp"
+)
+
+subsets = c(12,24,50,100,150)
+
+generate_linegraphs_by_effect(sim_name, tests, subsets,grouping="edgeR")
+generate_linegraphs_by_subset(sim_name, tests,grouping="edgeR")
+```
+
+```{r,fig.width = 9, fig.height = 5}
+source("plotting_functions.R")
+
+#filenames for results data
+sim_name = "ohj_skin_prefilt_medium"
+
+
+tests = c(
+  "edgeR_v1",
+  "edgeR_v2",
+  "edgeR_ql",
+  "edgeR_v1_TMMwsp",
+  "edgeR_v2_TMMwsp",
+  "limma_original_TMM",
+  "limma_trend",
+  "limma_voom",
+  "limma_original_TMMwsp",
+  "limma_trend_TMMwsp",
+  "limma_voom_TMMwsp"
+)
+
+subsets = c(12,24,50,100,150)
+
+generate_linegraphs_by_effect(sim_name, tests, subsets,grouping="edgeRvLimma")
+generate_linegraphs_by_subset(sim_name, tests,grouping="edgeRvLimma")
+```
+
+
+
+
+

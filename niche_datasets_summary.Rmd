@@ -1,0 +1,515 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse) # for data wrangling
+library(reshape2)
+library(matrixStats)
+library(gridExtra)
+
+#Importing Data
+
+#metadata and filtered feature matrix 
+studies = c("Zeevi_2014","Brito_2016","OhJ_2014_filtered")
+
+meta_dfs_unfiltered = list()
+meta_dfs = list()
+count_dfs_unfiltered = list()
+count_dfs = list()
+
+#filtering parameters to filter count matrix
+
+#All input data tables were
+# filtered within SIMBA for prevalence (at least 5% across the complete dataset) and abun-
+# dance (maximum relative abundance across samples of at least 1e-04
+
+ab.cutoff = 1e-04 #eliminates features that have less than this relative abundance (presumably across all samples)
+prev.cutoff = 0.05 #eliminates features with less than this prevalence
+log.n0 = 1e-05
+
+filt.params = list(ab.cutoff=as.numeric(ab.cutoff),
+                   prev.cutoff=prev.cutoff,
+                   log.n0=as.numeric(log.n0))
+
+for(i in 1:length(studies)){
+
+  #Importing and Filtering Data as in SimbaR simulation workflow
+  meta_filename = paste0("raw_data/meta_",studies[i],".tsv")
+  motu_filename = paste0("raw_data/motus_",studies[i],".tsv")
+  
+  meta = read_tsv(meta_filename, col_types = cols()) %>% 
+    filter(!is.na(Sample_ID)) %>%
+    as.data.frame()
+  
+  rownames(meta) <- meta$Sample_ID
+  
+  feat = read.table(motu_filename, sep='\t', stringsAsFactors = FALSE,
+                        check.names = FALSE, quote = '', comment.char = '',
+                        row.names = 1, header = TRUE)
+  
+  meta_dfs_unfiltered[[studies[i]]] = meta
+  count_dfs_unfiltered[[studies[i]]] = feat
+  
+  res <- simbaR:::check.original.data(feat, meta, sim.type="cross-section", sim.method="resampling")
+  feat.checked <- res$feat
+  meta.checked <- res$meta
+  
+  #Filtering
+  filt.params <- simbaR:::check.filtering.parameters(filt.params)
+  feat.filt <- simbaR:::filter.data(feat = feat.checked, meta = meta.checked, filt.params = filt.params)
+  
+  filtered_ids = meta.checked$Individual_ID
+  
+  meta.filtered = meta %>% filter(Individual_ID %in% filtered_ids)
+  
+  meta_dfs[[studies[i]]] = meta.filtered
+  count_dfs[[studies[i]]] = feat.filt
+  
+}
+```
+
+
+```{r}
+
+#Experimenting with filtering
+skin_unfiltered = data.frame(count_dfs_unfiltered[["OhJ_2014_filtered"]])
+oral_unfiltered = data.frame(count_dfs_unfiltered[["Brito_2016"]])
+gut_unfiltered = data.frame(count_dfs_unfiltered[["Zeevi_2014"]])
+
+skin = data.frame(count_dfs[["OhJ_2014_filtered"]])
+oral = data.frame(count_dfs[["Brito_2016"]])
+gut = data.frame(count_dfs[["Zeevi_2014"]])
+
+#Sparsity of each matrix
+for(study in studies){
+  sparsity = sum(count_dfs[[study]] == 0)/(dim(count_dfs[[study]])[1]*dim(count_dfs[[study]])[2])
+  print(paste0(study," : Sparsity = ", sparsity))
+}
+
+remove_zero_rows_cols <- function(mat) {
+  keep_rows <- rowSums(mat != 0) > 0
+  keep_cols <- colSums(mat != 0) > 0
+  result <- mat[keep_rows, keep_cols, drop = FALSE]
+  return(result)
+}
+
+for(study in studies){
+  
+  matrix = count_dfs[[study]]
+  matrix_removed = remove_zero_rows_cols(matrix)
+  
+  sparsity = sum(matrix_removed == 0)/(dim(matrix_removed)[1]*dim(matrix_removed)[2])
+  print(paste0(study," : Sparsity = ", sparsity))
+  
+}
+
+#Hence there are no completely zero columns
+
+#Removing samples that have less than 5 species 
+remove_sparse_columns <- function(mat, min_nonzero = 5) {
+  # Count non-zero entries in each column
+  nonzero_counts <- colSums(mat != 0)
+  
+  # Keep only columns with at least min_nonzero non-zero entries
+  keep_cols <- nonzero_counts >= min_nonzero
+  
+  # Subset the matrix, preserving matrix structure even if one column remains
+  result <- mat[, keep_cols, drop = FALSE]
+  
+  return(result)
+}
+
+for(study in studies){
+  
+  matrix = count_dfs[[study]]
+  matrix_filt = remove_sparse_columns(matrix,5)
+  
+  sparsity = sum(matrix_filt == 0)/(dim(matrix_filt)[1]*dim(matrix_filt)[2])
+  print(paste0(study," : Sparsity = ", sparsity))
+  
+}
+
+#OK so sparsity changes when I filter out the samples with less than a particular species abundance. I will see if I can reverse the order
+study = studies[3]
+
+#Applying custom filter first 
+matrix_skin_desparsed = remove_sparse_columns(count_dfs_unfiltered[[study]],5)
+meta_desparsed = meta_dfs_unfiltered[[study]][colnames(matrix_skin_desparsed),]
+res <- simbaR:::check.original.data(matrix_skin_desparsed, meta_desparsed, sim.type="cross-section", sim.method="resampling")
+feat.checked <- res$feat
+meta.checked <- res$meta
+
+#Filtering
+filt.params <- simbaR:::check.filtering.parameters(filt.params)
+count_df_1 <- simbaR:::filter.data(feat = feat.checked, meta = meta.checked, filt.params = filt.params)
+
+sparsity_1 = sum(count_df_1 == 0)/(dim(count_df_1)[1]*dim(count_df_1)[2])
+print(paste0(study," : Sparsity = ", sparsity_1))
+
+#Applying custom filter second
+count_df = count_dfs[[study]]
+count_df_2 = remove_sparse_columns(matrix,5)
+
+sparsity_2 = sum(count_df_2 == 0)/(dim(count_df_2)[1]*dim(count_df_2)[2])
+print(paste0(study," : Sparsity = ", sparsity_2))
+
+#comparing matrices 
+all.equal(count_df_1,count_df_2,check.attributes=FALSE)
+
+#ok so it seems that I can apply the custom filter before filtering and the resulting matrix is the same. 
+
+```
+
+
+
+
+```{r,fig.height=6,fig.width=6}
+#Summary stats of datasets – to determine what aspects of the datasets are causing the difference in effects – plotting actual data - boxplots of library size, counts per species, number of species – ggbeeswarm to get actual points on top of boxplot
+
+#Library Size Boxplot
+
+#Collecting library sizes
+library_sizes = list()
+
+for(study in studies){
+  library_sizes[[study]] = meta_dfs[[study]][,c("Library_Size","Individual_ID")]
+}
+
+library_sizes_melt <- melt(library_sizes)
+names(library_sizes_melt) = c("individual_ID","variable","library_size","study")
+
+library_sizes_melt = library_sizes_melt %>% mutate(study = case_when(
+  (study == "OhJ_2014_filtered") ~ "OhJ_2014",
+  TRUE ~ study)
+)
+
+library_sizes_melt = library_sizes_melt %>% mutate(study = case_when(
+  (study == "OhJ_2014") ~ "Skin",
+  TRUE ~ study)) %>% mutate(study = case_when(
+  (study == "Zeevi_2014") ~ "Gut",
+  TRUE ~ study)) %>% mutate(study = case_when(
+  (study == "Brito_2016") ~ "Oral",
+  TRUE ~ study)
+)
+
+library_sizes_melt[["Niche"]] = library_sizes_melt[["study"]]
+
+ggplot(library_sizes_melt, aes(x=study, y=library_size,col=Niche)) +
+  geom_boxplot(outliers=FALSE,show.legend=FALSE) +
+  geom_jitter(width =0.2,alpha=0.5,size=0.7) +  # Jittered points
+  xlab("Niche") +
+  ylab("Library size of each sample") +
+  ggtitle("Sample library size comparison between niches") +
+  theme(text = element_text(size = 13))
+ggsave("NicheSummary_plots/library_size_comparison.png")
+
+```
+
+```{r,fig.width = 12, fig.height = 6}
+#Number of Species bar charts - change to no. of species per sample boxplot, and also before and after filtering
+no_species=list()
+no_species_unfiltered = list()
+
+for(study in studies){
+  no_species[[study]] = rownames(count_dfs[[study]])
+  no_species_unfiltered[[study]] = rownames(count_dfs_unfiltered[[study]])
+}
+
+no_species_unfiltered_melt = melt(no_species_unfiltered)
+no_species_melt=melt(no_species)
+names(no_species_melt) = c("species","study")
+names(no_species_unfiltered_melt) = c("species","study")
+
+ggplot(no_species_unfiltered_melt,aes(x=study,col=study,fill=study))+
+  geom_bar() +
+  xlab("Study Niche (Oral, Skin, Gut)") +
+  ylab("Number of Species") +
+  ggtitle("Number of Species comparison between niche datasets (Before Filtering)")
+
+ggplot(no_species_melt,aes(x=study,col=study,fill=study))+
+  geom_bar() +
+  xlab("Study Niche (Oral, Skin, Gut)") +
+  ylab("Number of Species") +
+  ggtitle("Number of Species comparison between niche datasets (After Filtering)")
+
+
+
+#No species per sample boxplot
+
+
+no_species_samplewise =list()
+no_species_samplewise_unfiltered =list()
+for(study in studies){
+  counts = count_dfs[[study]]
+  counts_unfiltered = count_dfs_unfiltered[[study]]
+  
+  samples = colnames(counts)
+  samples_unfiltered = colnames(counts_unfiltered
+                                )
+  species = c()
+  species_unfiltered = c()
+  
+  for(sample in samples){
+    species = c(species,sum(counts[,sample] != 0))
+  }
+ 
+  for(sample in samples_unfiltered){
+    species_unfiltered = c(species_unfiltered,sum(counts_unfiltered[,sample] != 0))
+  } 
+  
+  no_species_samplewise[[study]] = data.frame(no.species=species)
+  no_species_samplewise_unfiltered[[study]] = data.frame(no.species=species_unfiltered)
+
+}
+
+no_species_samplewise_melt_unfiltered <- melt(no_species_samplewise_unfiltered)
+names(no_species_samplewise_melt_unfiltered) = c("variable","no.species","study")
+
+no_species_samplewise_melt_unfiltered = no_species_samplewise_melt_unfiltered %>% mutate(study = case_when(
+  (study == "OhJ_2014_filtered") ~ "OhJ_2014",
+  TRUE ~ study)
+)
+
+no_species_samplewise_melt_unfiltered = no_species_samplewise_melt_unfiltered %>% mutate(study = case_when(
+  (study == "OhJ_2014") ~ "Skin",
+  TRUE ~ study)) %>% mutate(study = case_when(
+  (study == "Zeevi_2014") ~ "Gut",
+  TRUE ~ study)) %>% mutate(study = case_when(
+  (study == "Brito_2016") ~ "Oral",
+  TRUE ~ study)
+)
+
+no_species_samplewise_melt_unfiltered[["Niche"]] = no_species_samplewise_melt_unfiltered[["study"]]
+
+
+before = ggplot(no_species_samplewise_melt_unfiltered, aes(x=study, y=no.species,col=Niche)) +
+  geom_boxplot(outliers=FALSE,show.legend=FALSE) +
+  geom_jitter(width =0.2,alpha=0.5,size=0.7,show.legend=FALSE) +  # Jittered points
+  xlab("Study Niche (Oral, Skin, Gut)") +
+  ylab("Number of species per sample") +
+  ylim(0,500) +
+  theme(text = element_text(size = 12))+
+  ggtitle("Before filtering")
+
+no_species_samplewise_melt <- melt(no_species_samplewise)
+names(no_species_samplewise_melt) = c("variable","no.species","study")
+
+no_species_samplewise_melt = no_species_samplewise_melt %>% mutate(study = case_when(
+  (study == "OhJ_2014_filtered") ~ "OhJ_2014",
+  TRUE ~ study)
+)
+
+no_species_samplewise_melt = no_species_samplewise_melt %>% mutate(study = case_when(
+  (study == "OhJ_2014") ~ "Skin",
+  TRUE ~ study)) %>% mutate(study = case_when(
+  (study == "Zeevi_2014") ~ "Gut",
+  TRUE ~ study)) %>% mutate(study = case_when(
+  (study == "Brito_2016") ~ "Oral",
+  TRUE ~ study)
+)
+
+no_species_samplewise_melt[["Niche"]] = no_species_samplewise_melt[["study"]]
+
+
+after = ggplot(no_species_samplewise_melt, aes(x=study, y=no.species,col=Niche)) +
+  geom_boxplot(outliers=FALSE,show.legend=FALSE) +
+  geom_jitter(width =0.2,alpha=0.5,size=0.7,show.legend=FALSE) +  # Jittered points
+  xlab("Niche") +
+  ylab("Number of species per sample") +
+  ylim(0,500) +
+  theme(text = element_text(size = 12))+
+  ggtitle("After filtering") 
+  theme(axis.ticks.y = element_blank(), axis.text.y = element_blank())
+
+plots = grid.arrange(before,after,ncol=2,top="Number of species per sample across niches")
+ggsave("NicheSummary_plots/species_per_sample.png",plots)
+
+
+
+```
+
+```{r,fig.height=6,fig.width=6}
+#Mean/Median Counts per species bar chart, one for each study - make sure that they are all counts double check Zeevi Data 
+library(gridExtra)
+
+ave_counts_studies=list()
+
+for(study in studies){
+  counts = count_dfs[[study]]
+  ave_counts = data.frame(species=rownames(counts),mean_count=rowMeans(counts),median_count=rowMedians(as.matrix(counts)))
+
+  ave_counts_melt = melt(ave_counts)
+  names(ave_counts_melt) = c("species","type","value")
+
+  ave_counts_studies[[study]] = ave_counts_melt
+
+  # box=ggplot(ave_counts_melt,aes(x=type,y=value,col=type))+
+  #   geom_boxplot(show.legend=FALSE) +
+  #   #geom_jitter(width =0.01,alpha=0.5,size=0.7) +
+  #   ggtitle("Regular Scale")+
+  #   xlab("")+
+  #   ylab("Count Average")
+  # 
+  # box_log=ggplot(ave_counts_melt,aes(x=type,y=value,col=type))+
+  #   geom_boxplot(show.legend=FALSE) +
+  #   #geom_jitter(width =0.01,alpha=0.5,size=0.7) +
+  #   scale_y_log10() +
+  #   ggtitle("Log Scale")+
+  #   xlab("")+
+  #   ylab("")
+  # 
+  # bar=ggplot(ave_counts_melt,aes(x=species,y=value,fill=type))+
+  #   geom_col(position="dodge", stat="identity")
+  # 
+  # plots = grid.arrange(arrangeGrob(box,box_log,ncol=2),bar,ncol=1, top=study)
+
+}
+
+
+
+ave_counts_studies_melt = melt(ave_counts_studies)
+names(ave_counts_studies_melt) = c("species","ave_type","ignore","value","study")
+
+ave_counts_studies_melt = ave_counts_studies_melt %>% mutate(study = case_when(
+  (study == "OhJ_2014_filtered") ~ "OhJ_2014",
+  TRUE ~ study)
+)
+
+ave_counts_studies_melt = ave_counts_studies_melt %>% mutate(study = case_when(
+  (study == "OhJ_2014") ~ "Skin",
+  TRUE ~ study)) %>% mutate(study = case_when(
+  (study == "Zeevi_2014") ~ "Gut",
+  TRUE ~ study)) %>% mutate(study = case_when(
+  (study == "Brito_2016") ~ "Oral",
+  TRUE ~ study)
+)
+
+ave_counts_studies_melt[["Niche"]] = ave_counts_studies_melt[["study"]]
+
+
+
+
+ggplot(filter(ave_counts_studies_melt,ave_type=="mean_count"), aes(y=value,x=Niche,col=Niche)) +
+  geom_boxplot(outliers=FALSE,show.legend=FALSE) +
+  geom_jitter(width =0.2,alpha=0.5,size=0.7,show.legend=FALSE) +
+  #ylim(0,200) +
+  ggtitle("Mean Count Abundance per species between niches") +
+  ylim(c(0,1e7)) +
+  scale_y_log10(breaks = scales::log_breaks(n = 10))+
+  xlab("Niche") +
+  ylab('Mean Count Value (Log Scale) ')+
+  theme(text = element_text(size = 12))
+
+ggsave("NicheSummary_plots/mean_species_abundance.png", units = "in")
+
+# ggplot(filter(ave_counts_studies_melt,ave_type=="median_count"), aes(y=value,x=study,col=study)) +
+#   geom_boxplot(outliers=FALSE) +
+#   geom_jitter(width =0.01,alpha=0.5,size=0.7,show.legend=FALSE) +
+#   #ylim(0,200) +
+#   ggtitle("Median Count Abundance per species for different niche studies") +
+#   scale_y_log10() +
+#   xlab("Study Niche (Oral, Skin, Gut)") +
+#   ylab('Median Count Value (Log Scale) ') +
+#   theme_linedraw()
+
+
+
+
+
+
+#
+```
+```{r}
+summarise_count_matrices <- function(matrix_list, digits = 2) {
+  # Name the matrices if the list is unnamed
+  if (is.null(names(matrix_list))) {
+    names(matrix_list) <- paste0("matrix_", seq_along(matrix_list))
+  }
+
+  summary_list <- lapply(matrix_list, function(m) {
+    m <- as.matrix(m)  # also accepts data frames / sparse-to-dense inputs
+
+    n_species <- nrow(m)
+    n_samples <- ncol(m)
+
+    data.frame(
+      n_samples             = n_samples,
+      mean_nonzero_species  = mean(colSums(m != 0)),   # avg number of non-zero species per sample
+      mean_library_size     = mean(colSums(m)),        # avg total count per sample
+      mean_count_per_entry  = mean(m),                 # avg count of a species in a sample
+      sparsity              = mean(m == 0)             # fraction of entries equal to zero
+    )
+  })
+
+  result <- do.call(rbind, summary_list)
+  result <- cbind(matrix = names(matrix_list), result, row.names = NULL)
+
+  # Round the numeric summary statistics (n_samples stays an integer count)
+  stat_cols <- setdiff(names(result), c("matrix", "n_samples"))
+  result[stat_cols] <- lapply(result[stat_cols], round, digits = digits)
+
+  # Print a formatted copy so trailing zeros are kept (e.g. 10.00, not 10)
+  display <- result
+  display[stat_cols] <- lapply(result[stat_cols], format, nsmall = digits)
+  print(display, row.names = FALSE)
+
+  invisible(result)
+}
+
+summarise_count_matrices(count_dfs,2)
+```
+
+
+
+
+```{r}
+library(edgeR)
+library(rhdf5)
+#Mean Variance Plot Zeevi
+sim_names = c("zeevi_gut_medium") # ,"brito_oral_medium") #,"ohj_skin_medium")
+
+
+for(sim in sim_names){
+  
+  sim_implant_name = sim
+  sim.implant_loc = paste0("datasets/",sim,".h5")
+  temp = h5ls(sim.implant_loc,recursive=FALSE)
+  groups = setdiff(temp$name, c('original_data', 'simulation_parameters'))
+  group = "ab6_prev4_rep1"
+  print(group)
+  complete_group = h5read(sim.implant_loc,group)
+  features = complete_group$features
+  params <- h5read(file = sim.implant_loc, name = "simulation_parameters")
+  
+  subsets = names(complete_group$test_idx)
+  subset=subsets[length(subsets)]
+
+  subset_idx = complete_group[['test_idx']][[subset]]
+  rownames(subset_idx) <- params$test_idx$names
+  
+  label=subset_idx["label",]
+  
+  subset_repeats = subset_idx[which(grepl("^rep[0-9]*$", rownames(subset_idx))), 
+                                , drop = FALSE]
+  
+  df.test = features[,subset_repeats[1,]]
+  
+  dge = edgeR::DGEList(counts=df.test)
+  dge = edgeR::normLibSizes(dge,method="TMMwsp")
+  
+  logCPM = edgeR::cpm(dge, log=TRUE, prior.count=3)
+  fit_trend = limma::lmFit(logCPM,design=data.frame(intercept = 1, label=1-(label<0)))
+
+  fit_voom = edgeR::voomLmFit(logCPM,design=data.frame(intercept = 1, label=1-(label<0)),plot=TRUE)
+
+  #plotSA(fit_trend)
+s
+  
+  #edgeR::plotMeanVar(d,show.raw.vars = TRUE)
+}
+
+
+```
+

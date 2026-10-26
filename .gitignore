@@ -5,3 +5,11 @@
 datasets/
 *.nb.html
 *.h5
+metric_plots/
+classification_plots/
+NicheSummary_plots/
+classification_results/
+Initial Simba Testing/
+__pycache__/
+.DS_Store
+*.h5
